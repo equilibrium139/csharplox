@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "sharplox": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Documents\\csharplox\\sharplox\\TestScripts\\Test.lox"
+    }
+  }
+}
