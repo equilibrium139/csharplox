@@ -49,11 +49,14 @@ namespace sharplox
             //    }
             //}
             List<Stmt> statements = parser.Parse();
+
             if (hadError)
             {
                 return;
             }
-            interpreter.Interpret(statements);
+            Resolver resolver = new Resolver(interpreter);
+            resolver.Resolve(statements);
+            if (!hadError) interpreter.Interpret(statements);
         }
 
         private static void RunFile(string path)

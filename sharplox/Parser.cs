@@ -577,6 +577,8 @@ namespace sharplox
 
         public Expr ParseLambda()
         {
+            funcsCurrentlyParsing++;
+
             Token funKeyword = previous();
             consume(TokenType.LEFT_PAREN, "Expect '(' after 'fun' in lambda.");
 
@@ -587,6 +589,8 @@ namespace sharplox
             // parse body
             consume(TokenType.LEFT_BRACE, "Expect '{' before lambda body.");
             List<Stmt> body = ParseBlock();
+
+            funcsCurrentlyParsing--;
             return new Expr.Lambda(funKeyword, parameters, body);
         }
     }

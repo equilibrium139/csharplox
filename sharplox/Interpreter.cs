@@ -8,6 +8,7 @@ namespace sharplox
     {
         public readonly Environment globals = new Environment(); // global functions
         Environment environment;    // initialized to globals in ctor below
+        private readonly Dictionary<Expr, int> locals = new Dictionary<Expr, int>();
 
         // Example of a native function
         private class Clock : LoxCallable
@@ -47,6 +48,12 @@ namespace sharplox
             {
                 Lox.RuntimeError(error);
             }
+        }
+
+        public void Resolve(Expr expr, int depth)
+        {
+            // This is fine because each expr is unique.
+            locals[expr] = depth;
         }
 
         void Execute(Stmt statement)
@@ -182,13 +189,20 @@ namespace sharplox
         {
             // Variables and functions exist in the same environment, so unlike some other languages,
             // Lox does not allow a function to have the same name as a variable in the same environment.
-            return environment.Get(expr.name);
+            return LookUpVariable(expr.name, expr);
         }
 
         public object visitAssignmentExpr(Expr.Assignment expr)
         {
             object value = Evaluate(expr.value);
-            environment.Assign(expr.name, value);
+            if(locals.TryGetValue(expr, out int depth))
+            {
+                environment.AssignAt(expr.name, value, depth);
+            }
+            else
+            {
+                globals.Assign(expr.name, value);
+            }
             return value;
         }
 
@@ -249,6 +263,19 @@ namespace sharplox
         private void CheckNumberOperands(Token op, object lhs, object rhs)
         {
             if(!(lhs is double && rhs is double)) { throw new RuntimeError(op, "Operands must be numbers."); }
+        }
+
+        private object LookUpVariable(Token name, Expr expr)
+        {
+            if(locals.TryGetValue(expr, out int depth))
+            {
+                string nameStr = (string)name.data;
+                return environment.GetAt(nameStr, depth);
+            }
+            else
+            {
+                return globals.Get(name);
+            }
         }
 
         // Hacky fix: since we can't implement IVisitor<void>, we have to implement
