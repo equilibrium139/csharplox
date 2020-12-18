@@ -23,17 +23,24 @@ namespace sharplox
 
         private readonly Stack<Dictionary<string, bool>> scopes = new Stack<Dictionary<string, bool>>();
         private readonly Stack<Dictionary<string, Token>> unusedVars = new Stack<Dictionary<string, Token>>();
+        private readonly Dictionary<string, Token> unusedGlobals = new Dictionary<string, Token>();
 
         public Resolver(Interpreter interpreter)
         {
             this.interpreter = interpreter;
         }
 
+        // This is only called from outside the class. That way we know that when the for loop is done,
+        // the entire program has been resolved and only then can we report any unused globals. 
         public void Resolve(List<Stmt> stmts)
         {
             foreach(Stmt stmt in stmts)
             {
                 Resolve(stmt);
+            }
+            foreach(var v in unusedGlobals)
+            {
+                Lox.ReportError(v.Value, "Variable '" + v.Key + "' not used.");
             }
         }
 
@@ -78,6 +85,10 @@ namespace sharplox
                     unusedVars.Peek().Add(name, nameToken);
                 }
             }
+            else
+            {
+                unusedGlobals.Add(name, nameToken);
+            }
         }
 
         private void Define(string name)
@@ -110,7 +121,7 @@ namespace sharplox
                 Declare(parameter, name);
                 Define(name);
             }
-            Resolve(function.body);
+            function.body.ForEach(Resolve);
             EndScope();
         }
 
@@ -158,7 +169,7 @@ namespace sharplox
                 Define(name);
             }
 
-            Resolve(expr.body);
+            expr.body.ForEach(Resolve);
 
             EndScope();
 
@@ -192,7 +203,8 @@ namespace sharplox
                 Lox.ReportError(expr.name, "Can't read local variable in its own initializer.");
             }
 
-            unusedVars.Peek().Remove(name);
+            if (scopes.Count > 0) unusedVars.Peek().Remove(name);
+            else unusedGlobals.Remove(name);
 
             ResolveLocal(expr, name);
             return null;
@@ -201,7 +213,7 @@ namespace sharplox
         object Stmt.IVisitor<object>.visitBlockStmt(Stmt.Block stmt)
         {
             BeginScope();
-            Resolve(stmt.statements);
+            stmt.statements.ForEach(Resolve);
             EndScope();
             return null;
         }

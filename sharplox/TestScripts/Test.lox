@@ -1,5 +1,6 @@
+fun add(a, b)
 {
-  var x = 10;
-  x = x + 1;
-  print "Hello";
+  return a + b;
 }
+
+// print add(5, 5);
