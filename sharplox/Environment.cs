@@ -77,7 +77,7 @@ namespace sharplox
             Environment environment = this;
             for(int i = 0; i < depth; i++)
             {
-                environment = this.enclosing;
+                environment = environment.enclosing;
             }
             return environment;
         }

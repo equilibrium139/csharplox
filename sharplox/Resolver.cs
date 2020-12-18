@@ -23,7 +23,7 @@ namespace sharplox
 
         private readonly List<Dictionary<string, bool>> scopes = new List<Dictionary<string, bool>>();
 
-        private readonly Stack<Dictionary<string, Token>> unusedVars = new Stack<Dictionary<string, Token>>();
+        private readonly List<Dictionary<string, Token>> unusedVars = new List<Dictionary<string, Token>>();
         private readonly Dictionary<string, Token> unusedGlobals = new Dictionary<string, Token>();
 
         private readonly List<Dictionary<string, int>> varIndices = new List<Dictionary<string, int>>();
@@ -64,7 +64,7 @@ namespace sharplox
         private void BeginScope()
         {
             scopes.Add(new Dictionary<string, bool>());
-            unusedVars.Push(new Dictionary<string, Token>());
+            unusedVars.Add(new Dictionary<string, Token>());
             varIndices.Add(new Dictionary<string, int>());
             scopeIndices.Add(0);
         }
@@ -74,9 +74,11 @@ namespace sharplox
             return list[list.Count - 1];
         }
 
-        private static void Pop<T>(List<T> list)
+        private static T Pop<T>(List<T> list)
         {
+            T removed = list[list.Count - 1];
             list.RemoveAt(list.Count - 1);
+            return removed;
         }
 
         private int GetNextIndex()
@@ -90,7 +92,7 @@ namespace sharplox
             Pop(varIndices);
             Pop(scopeIndices);
 
-            var unusedVarsInScope = unusedVars.Pop();
+            var unusedVarsInScope = Pop(unusedVars);
             foreach(var v in unusedVarsInScope)
             {
                 Lox.ReportError(v.Value, "Variable '" + v.Key + "' not used.");
@@ -111,7 +113,7 @@ namespace sharplox
                     scope.Add(name, false);
                     int varIndex = GetNextIndex();
                     Peek(varIndices).Add(name, varIndex);
-                    unusedVars.Peek().Add(name, nameToken);
+                    Peek(unusedVars).Add(name, nameToken);
                 }
             }
             else
@@ -129,18 +131,31 @@ namespace sharplox
             }
         }
 
-        private void ResolveLocal(Expr expr, string name)
+        enum AccessType
+        {
+            LHS, RHS
+        }
+
+        private void ResolveLocal(Expr expr, string name, AccessType accessType)
         {
             for (int i = scopes.Count - 1; i >= 0; i--)
             {
                 if(scopes[i].ContainsKey(name))
                 {
                     interpreter.Resolve(expr, scopes.Count - 1 - i, varIndices[i][name]);
+                    if(accessType == AccessType.RHS)
+                    {
+                        unusedVars[i].Remove(name);
+                    }
                     return;
                 }
             }
 
             // It's a reference to a global
+            if (accessType == AccessType.RHS)
+            {
+                unusedGlobals.Remove(name);
+            }
             interpreter.ResolveGlobal(expr, globalVarIndices[name]);
         }
 
@@ -160,7 +175,7 @@ namespace sharplox
         public object visitAssignmentExpr(Expr.Assignment expr)
         {
             Resolve(expr.value);
-            ResolveLocal(expr, (string)(expr.name.data));
+            ResolveLocal(expr, (string)(expr.name.data), AccessType.LHS);
             return null;
         }
 
@@ -235,10 +250,7 @@ namespace sharplox
                 Lox.ReportError(expr.name, "Can't read local variable in its own initializer.");
             }
 
-            if (scopes.Count > 0) unusedVars.Peek().Remove(name);
-            else unusedGlobals.Remove(name);
-
-            ResolveLocal(expr, name);
+            ResolveLocal(expr, name, AccessType.RHS);
             return null;
         }
 
