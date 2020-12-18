@@ -20,7 +20,9 @@ namespace sharplox
         // Used only for local block scopes. If a variable we are resolving can't be found in this stack,
         // we assume it is global. Bool value represents whether or not we have finished resolving that var's
         // initializer.
+
         private readonly Stack<Dictionary<string, bool>> scopes = new Stack<Dictionary<string, bool>>();
+        private readonly Stack<Dictionary<string, Token>> unusedVars = new Stack<Dictionary<string, Token>>();
 
         public Resolver(Interpreter interpreter)
         {
@@ -48,24 +50,33 @@ namespace sharplox
         private void BeginScope()
         {
             scopes.Push(new Dictionary<string, bool>());
+            unusedVars.Push(new Dictionary<string, Token>());
         }
 
         private void EndScope()
         {
             scopes.Pop();
+            var unusedVarsInScope = unusedVars.Pop();
+            foreach(var v in unusedVarsInScope)
+            {
+                Lox.ReportError(v.Value, "Variable '" + v.Key + "' not used.");
+            }
         }
 
         private void Declare(Token nameToken, string name)
         {
-            // if scopes is empty then it's a global variable, do nothing
-            if(scopes.Count > 0)
+            if (scopes.Count > 0)
             {
-                Dictionary<string, bool> scope = scopes.Peek();
-                if(scope.ContainsKey(name))
+                var scope = scopes.Peek();
+                if (scope.ContainsKey(name))
                 {
                     Lox.ReportError(nameToken, "Variable with this name was already declared in the same scope.");
                 }
-                scopes.Peek()[name] = false;
+                else
+                {
+                    scope.Add(name, false);
+                    unusedVars.Peek().Add(name, nameToken);
+                }
             }
         }
 
@@ -176,10 +187,12 @@ namespace sharplox
         public object visitVariableExpr(Expr.Variable expr)
         {
             string name = (string)expr.name.data;
-            if (scopes.Count > 0 && scopes.Peek().TryGetValue(name, out bool undefined) && !undefined)
+            if (scopes.Count > 0 && scopes.Peek().TryGetValue(name, out bool resolved) && !resolved)
             {
                 Lox.ReportError(expr.name, "Can't read local variable in its own initializer.");
             }
+
+            unusedVars.Peek().Remove(name);
 
             ResolveLocal(expr, name);
             return null;

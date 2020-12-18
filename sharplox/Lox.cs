@@ -32,6 +32,20 @@ namespace sharplox
             hadError = true;
         }
 
+        public static void ReportWarning(Token token, string message)
+        {
+            if (token.type == TokenType.EOF)
+            {
+                ReportWarning(token.line, token.column, message + " at end");
+            }
+            else ReportWarning(token.line, token.column, message);
+        }
+
+        public static void ReportWarning(int line, int charNo, string message)
+        {
+            Console.Error.WriteLine($"Error: {message} on line {line}, character {charNo}.");
+        }
+
         private static void Run(string source)
         {
             Scanner scanner = new Scanner(source);
