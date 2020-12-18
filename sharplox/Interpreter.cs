@@ -6,9 +6,17 @@ namespace sharplox
 {
     class Interpreter : Expr.IVisitor<object>, Stmt.IVisitor<object>
     {
-        public readonly Environment globals = new Environment(); // global functions
+        struct ExprLocationData
+        {
+            public int depth;
+            public int index;
+        }
+
+        private readonly Environment native = new Environment();
+        public readonly Environment globals;
         Environment environment;    // initialized to globals in ctor below
-        private readonly Dictionary<Expr, int> locals = new Dictionary<Expr, int>();
+        private readonly Dictionary<Expr, ExprLocationData> locals = new Dictionary<Expr, ExprLocationData>();
+        private readonly Dictionary<Expr, int> globalIndices = new Dictionary<Expr, int>();
 
         // Example of a native function
         private class Clock : LoxCallable
@@ -31,8 +39,9 @@ namespace sharplox
 
         public Interpreter()
         {
+            globals = new Environment(enclosing: native);
             environment = globals;
-            globals.Define("clock", new Clock());
+            native.Define(new Clock());
         }
 
         public void Interpret(List<Stmt> statements)
@@ -50,10 +59,15 @@ namespace sharplox
             }
         }
 
-        public void Resolve(Expr expr, int depth)
+        public void Resolve(Expr expr, int depth, int index)
         {
             // This is fine because each expr is unique.
-            locals[expr] = depth;
+            locals[expr] = new ExprLocationData { depth = depth, index = index };
+        }
+
+        public void ResolveGlobal(Expr expr, int index)
+        {
+            globalIndices[expr] = index;
         }
 
         void Execute(Stmt statement)
@@ -195,13 +209,13 @@ namespace sharplox
         public object visitAssignmentExpr(Expr.Assignment expr)
         {
             object value = Evaluate(expr.value);
-            if(locals.TryGetValue(expr, out int depth))
+            if(locals.TryGetValue(expr, out var exprLocation))
             {
-                environment.AssignAt(expr.name, value, depth);
+                environment.AssignAt(exprLocation.depth, exprLocation.index, value);
             }
             else
             {
-                globals.Assign(expr.name, value);
+                globals.Assign(globalIndices[expr], value);
             }
             return value;
         }
@@ -267,14 +281,13 @@ namespace sharplox
 
         private object LookUpVariable(Token name, Expr expr)
         {
-            if(locals.TryGetValue(expr, out int depth))
+            if(locals.TryGetValue(expr, out var exprLocation))
             {
-                string nameStr = (string)name.data;
-                return environment.GetAt(nameStr, depth);
+                return environment.GetAt(exprLocation.depth, exprLocation.index);
             }
             else
             {
-                return globals.Get(name);
+                return globals.Get(globalIndices[expr]);
             }
         }
 
@@ -303,7 +316,7 @@ namespace sharplox
             {
                 varValue = Evaluate(stmt.intializer);
             }
-            environment.Define(stmt.name, varValue);
+            environment.Define(varValue);
             return null;
         }
 
@@ -385,7 +398,7 @@ namespace sharplox
         public object visitFunctionStmt(Stmt.Function stmt)
         {
             LoxFunction function = new LoxFunction(function: stmt, closure: environment);
-            environment.Define((string)stmt.name.data, function);
+            environment.Define(function);
             return null;
         }
 

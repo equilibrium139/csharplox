@@ -25,7 +25,7 @@ namespace sharplox
             Environment environment = new Environment(enclosing: closure);
             for (int i = 0; i < args.Count; i++)
             {
-                environment.Define(lambda.parameters[i], args[i]);
+                environment.Define(args[i]);
             }
 
             try

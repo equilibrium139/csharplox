@@ -7,7 +7,8 @@ namespace sharplox
     class Environment
     {
         public readonly Environment enclosing; // resort to this scope if a variable cannot be found in this
-        readonly Dictionary<string, object> values = new Dictionary<string, object>();
+        // readonly Dictionary<string, object> values = new Dictionary<string, object>();
+        readonly List<object> values = new List<object>();
 
         public Environment()
         {
@@ -20,22 +21,27 @@ namespace sharplox
         }
 
         // This function only used to define globals
-        public void Define(string name, object value)
+        /*public void Define(string name, object value)
         {
             bool success = values.TryAdd(name, value);
             Debug.Assert(success, "Global variable " + " name was already defined.");
+        }*/
+
+        public void Define(object value)
+        {
+            values.Add(value);
         }
 
-        public void Define(Token name, object value)
+        /*public void Define(Token name, object value)
         {
             string nameStr = (string)name.data;
             if (!values.TryAdd(nameStr, value))
             {
                 throw new RuntimeError(name, "Variable \"" + nameStr + "\" was already declared.");
             }
-        }
+        }*/
 
-        public object Get(Token name)
+        /*public object Get(Token name)
         {
             string varName = (string)(name.data);
             if(values.TryGetValue(varName, out object value))
@@ -47,13 +53,23 @@ namespace sharplox
                 return enclosing.Get(name);
             }
             throw new RuntimeError(name, "Undefined variable \"" + varName + "\".");
+        }*/
+
+        public object Get(int index)
+        {
+            return values[index];
         }
 
-        public object GetAt(string name, int distance)
+        /*public object GetAt(string name, int distance)
         {
             Environment ancestor = Ancestor(distance);
             Debug.Assert(ancestor.values.ContainsKey(name));
             return ancestor.values[name];
+        }*/
+
+        public object GetAt(int depth, int index)
+        {
+            return Ancestor(depth).values[index];
         }
 
         private Environment Ancestor(int depth)
@@ -66,7 +82,7 @@ namespace sharplox
             return environment;
         }
 
-        public void Assign(Token name, object value)
+        /*public void Assign(Token name, object value)
         {
             string varName = (string)name.data;
             if(values.ContainsKey(varName))
@@ -81,14 +97,16 @@ namespace sharplox
             {
                 throw new RuntimeError(name, "Undefined variable \"" + varName + "\".");
             }
+        }*/
+
+        public void Assign(int index, object value)
+        {
+            values[index] = value;
         }
 
-        public void AssignAt(Token name, object value, int depth)
+        public void AssignAt(int depth, int index, object value)
         {
-            string varName = (string)name.data;
-            Environment ancestor = Ancestor(depth);
-            Debug.Assert(ancestor.values.ContainsKey(varName));
-            ancestor.values[varName] = value;
+            Ancestor(depth).values[index] = value;
         }
     }
 }

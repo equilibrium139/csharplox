@@ -21,9 +21,16 @@ namespace sharplox
         // we assume it is global. Bool value represents whether or not we have finished resolving that var's
         // initializer.
 
-        private readonly Stack<Dictionary<string, bool>> scopes = new Stack<Dictionary<string, bool>>();
+        private readonly List<Dictionary<string, bool>> scopes = new List<Dictionary<string, bool>>();
+
         private readonly Stack<Dictionary<string, Token>> unusedVars = new Stack<Dictionary<string, Token>>();
         private readonly Dictionary<string, Token> unusedGlobals = new Dictionary<string, Token>();
+
+        private readonly List<Dictionary<string, int>> varIndices = new List<Dictionary<string, int>>();
+        private readonly List<int> scopeIndices = new List<int>();
+
+        private readonly Dictionary<string, int> globalVarIndices = new Dictionary<string, int>();
+        private int globalIndex = 0;
 
         public Resolver(Interpreter interpreter)
         {
@@ -56,13 +63,33 @@ namespace sharplox
 
         private void BeginScope()
         {
-            scopes.Push(new Dictionary<string, bool>());
+            scopes.Add(new Dictionary<string, bool>());
             unusedVars.Push(new Dictionary<string, Token>());
+            varIndices.Add(new Dictionary<string, int>());
+            scopeIndices.Add(0);
+        }
+
+        private static T Peek<T>(List<T> list)
+        {
+            return list[list.Count - 1];
+        }
+
+        private static void Pop<T>(List<T> list)
+        {
+            list.RemoveAt(list.Count - 1);
+        }
+
+        private int GetNextIndex()
+        {
+            return scopeIndices[scopeIndices.Count - 1]++;
         }
 
         private void EndScope()
         {
-            scopes.Pop();
+            Pop(scopes);
+            Pop(varIndices);
+            Pop(scopeIndices);
+
             var unusedVarsInScope = unusedVars.Pop();
             foreach(var v in unusedVarsInScope)
             {
@@ -74,7 +101,7 @@ namespace sharplox
         {
             if (scopes.Count > 0)
             {
-                var scope = scopes.Peek();
+                var scope = scopes[scopes.Count - 1];
                 if (scope.ContainsKey(name))
                 {
                     Lox.ReportError(nameToken, "Variable with this name was already declared in the same scope.");
@@ -82,11 +109,14 @@ namespace sharplox
                 else
                 {
                     scope.Add(name, false);
+                    int varIndex = GetNextIndex();
+                    Peek(varIndices).Add(name, varIndex);
                     unusedVars.Peek().Add(name, nameToken);
                 }
             }
             else
             {
+                globalVarIndices.Add(name, globalIndex++);
                 unusedGlobals.Add(name, nameToken);
             }
         }
@@ -95,21 +125,23 @@ namespace sharplox
         {
             if(scopes.Count > 0)
             {
-                scopes.Peek()[name] = true;
+                scopes[scopes.Count - 1][name] = true;
             }
         }
 
         private void ResolveLocal(Expr expr, string name)
         {
-            int i = scopes.Count - 1;
-            foreach(var scope in scopes)
+            for (int i = scopes.Count - 1; i >= 0; i--)
             {
-                if(scope.ContainsKey(name))
+                if(scopes[i].ContainsKey(name))
                 {
-                    interpreter.Resolve(expr, scopes.Count - 1 - i);
+                    interpreter.Resolve(expr, scopes.Count - 1 - i, varIndices[i][name]);
+                    return;
                 }
-                i--;
             }
+
+            // It's a reference to a global
+            interpreter.ResolveGlobal(expr, globalVarIndices[name]);
         }
 
         private void ResolveFunction(Stmt.Function function)
@@ -198,7 +230,7 @@ namespace sharplox
         public object visitVariableExpr(Expr.Variable expr)
         {
             string name = (string)expr.name.data;
-            if (scopes.Count > 0 && scopes.Peek().TryGetValue(name, out bool resolved) && !resolved)
+            if (scopes.Count > 0 && scopes[scopes.Count - 1].TryGetValue(name, out bool resolved) && !resolved)
             {
                 Lox.ReportError(expr.name, "Can't read local variable in its own initializer.");
             }
