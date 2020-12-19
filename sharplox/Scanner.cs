@@ -245,7 +245,8 @@ namespace sharplox
 
         private void AddToken(TokenType type, object data)
         {
-            tokens.Add(new Token(type, data, line, column));
+            string lexeme = source.Substring(start, current - start);
+            tokens.Add(new Token(type, data, lexeme, line, column));
         }
 
         private bool isAtEnd()

@@ -32,6 +32,20 @@ namespace sharplox
         private readonly Dictionary<string, int> globalVarIndices = new Dictionary<string, int>();
         private int globalIndex = 0;
 
+        private enum ClassType
+        {
+            NONE, CLASS
+        }
+
+        enum FunctionType
+        {
+            NONE, FUNCTION, LAMBDA, METHOD, STATIC, INITIALIZER
+        }
+
+
+        ClassType currentClass = ClassType.NONE; // used to ensure "this" keyword only used in methods.
+        FunctionType currentFunction = FunctionType.NONE;
+        
         public Resolver(Interpreter interpreter)
         {
             this.interpreter = interpreter;
@@ -99,35 +113,42 @@ namespace sharplox
             }
         }
 
-        private void Declare(Token nameToken, string name)
+        private void Declare(Token name)
         {
             if (scopes.Count > 0)
             {
                 var scope = scopes[scopes.Count - 1];
-                if (scope.ContainsKey(name))
+                if (scope.ContainsKey(name.lexeme))
                 {
-                    Lox.ReportError(nameToken, "Variable with this name was already declared in the same scope.");
+                    Lox.ReportError(name, "Variable with this name was already declared in the same scope.");
                 }
                 else
                 {
-                    scope.Add(name, false);
+                    scope.Add(name.lexeme, false);
                     int varIndex = GetNextIndex();
-                    Peek(varIndices).Add(name, varIndex);
-                    Peek(unusedVars).Add(name, nameToken);
+                    Peek(varIndices).Add(name.lexeme, varIndex);
+                    Peek(unusedVars).Add(name.lexeme, name);
                 }
             }
             else
             {
-                globalVarIndices.Add(name, globalIndex++);
-                unusedGlobals.Add(name, nameToken);
+                if(globalVarIndices.ContainsKey(name.lexeme))
+                {
+                    Lox.ReportError(name, "Variable with this name was already declared in global scope.");
+                }
+                else
+                {
+                    globalVarIndices.Add(name.lexeme, globalIndex++);
+                    unusedGlobals.Add(name.lexeme, name);
+                }
             }
         }
 
-        private void Define(string name)
+        private void Define(Token name)
         {
             if(scopes.Count > 0)
             {
-                scopes[scopes.Count - 1][name] = true;
+                scopes[scopes.Count - 1][name.lexeme] = true;
             }
         }
 
@@ -159,23 +180,25 @@ namespace sharplox
             interpreter.ResolveGlobal(expr, globalVarIndices[name]);
         }
 
-        private void ResolveFunction(Stmt.Function function)
+        private void ResolveFunction(List<Token> parameters, List<Stmt> body, FunctionType type)
         {
+            FunctionType enclosingType = currentFunction;
+            currentFunction = type;
             BeginScope();
-            foreach(Token parameter in function.parameters)
+            foreach(Token parameter in parameters)
             {
-                string name = (string)parameter.data;
-                Declare(parameter, name);
-                Define(name);
+                Declare(parameter);
+                Define(parameter);
             }
-            function.body.ForEach(Resolve);
+            body.ForEach(Resolve);
             EndScope();
+            currentFunction = enclosingType;
         }
 
         public object visitAssignmentExpr(Expr.Assignment expr)
         {
             Resolve(expr.value);
-            ResolveLocal(expr, (string)(expr.name.data), AccessType.LHS);
+            ResolveLocal(expr, expr.name.lexeme, AccessType.LHS);
             return null;
         }
 
@@ -207,19 +230,7 @@ namespace sharplox
 
         public object visitLambdaExpr(Expr.Lambda expr)
         {
-            BeginScope();
-
-            foreach(Token parameter in expr.parameters)
-            {
-                string name = (string)parameter.data;
-                Declare(parameter, name);
-                Define(name);
-            }
-
-            expr.body.ForEach(Resolve);
-
-            EndScope();
-
+            ResolveFunction(expr.parameters, expr.body, FunctionType.LAMBDA);
             return null;
         }
 
@@ -244,13 +255,40 @@ namespace sharplox
 
         public object visitVariableExpr(Expr.Variable expr)
         {
-            string name = (string)expr.name.data;
+            string name = expr.name.lexeme;
             if (scopes.Count > 0 && scopes[scopes.Count - 1].TryGetValue(name, out bool resolved) && !resolved)
             {
                 Lox.ReportError(expr.name, "Can't read local variable in its own initializer.");
             }
 
             ResolveLocal(expr, name, AccessType.RHS);
+            return null;
+        }
+
+        public object visitGetExpr(Expr.Get expr)
+        {
+            Resolve(expr.instance);
+            return null;
+        }
+
+        public object visitSetExpr(Expr.Set expr)
+        {
+            Resolve(expr.value);
+            Resolve(expr.instance);
+            return null;
+        }
+
+        public object visitThisExpr(Expr.This expr)
+        {
+            if(currentClass == ClassType.NONE)
+            {
+                Lox.ReportError(expr.keyword, "Can't use 'this' outside of a class.");
+            }
+            else if(currentFunction == FunctionType.STATIC)
+            {
+                Lox.ReportError(expr.keyword, "Can't use 'this' in a static method.");
+            }
+            else ResolveLocal(expr, expr.keyword.lexeme, AccessType.RHS);
             return null;
         }
 
@@ -275,10 +313,10 @@ namespace sharplox
 
         object Stmt.IVisitor<object>.visitFunctionStmt(Stmt.Function stmt)
         {
-            string name = (string)stmt.name.data;
-            Declare(stmt.name, name);
-            Define(name);
-            ResolveFunction(stmt);
+
+            Declare(stmt.name);
+            Define(stmt.name);
+            ResolveFunction(stmt.parameters, stmt.body, FunctionType.FUNCTION);
             return null;
         }
 
@@ -298,19 +336,29 @@ namespace sharplox
 
         object Stmt.IVisitor<object>.visitReturnStmt(Stmt.Return stmt)
         {
-            if(stmt.value != null) Resolve(stmt.value);
+            if(currentFunction == FunctionType.NONE)
+            {
+                Lox.ReportError(stmt.keyword, "Can only return from functions or methods.");
+            }
+            else if (stmt.value != null)
+            {
+                if (currentFunction == FunctionType.INITIALIZER)
+                {
+                    Lox.ReportError(stmt.keyword, "Cannot return value from an initializer.");
+                }
+                Resolve(stmt.value);
+            }
             return null;
         }
 
         object Stmt.IVisitor<object>.visitVarStmt(Stmt.Var stmt)
         {
-            string name = (string)stmt.name.data;
-            Declare(stmt.name, name);
+            Declare(stmt.name);
             if (stmt.intializer != null)
             {
                 Resolve(stmt.intializer);
             }
-            Define(name);
+            Define(stmt.name);
             return null;
         }
 
@@ -318,6 +366,43 @@ namespace sharplox
         {
             Resolve(stmt.condition);
             Resolve(stmt.body);
+            return null;
+        }
+
+        public object visitClassStmt(Stmt.Class stmt)
+        {
+            ClassType enclosingClass = currentClass;
+            currentClass = ClassType.CLASS;
+
+            Declare(stmt.name);
+            Define(stmt.name);
+
+            BeginScope();
+            // "this" is the only variable we declare at class scope. That means that when ResolveLocal()
+            // is called on "this" in the methods, the resolver will compute depth = 1, index = 0. 
+            // In LoxFunction.Bind(), we create a new function with a closure whose only variable is "this" (at index 0)
+            // and since it's a closure, it has a depth of 1 from the function body.
+            Peek(scopes)["this"] = true;
+            Peek(varIndices)["this"] = GetNextIndex(); // TODO maybe change to 0
+
+            foreach(Stmt.Function method in stmt.methods)
+            {
+                FunctionType declaration = FunctionType.METHOD;
+                if(method.name.lexeme == "init")
+                {
+                    declaration = FunctionType.INITIALIZER;
+                }
+                ResolveFunction(method.parameters, method.body, declaration);
+            }
+
+            foreach(Stmt.Function method in stmt.staticMethods)
+            {
+                ResolveFunction(method.parameters, method.body, FunctionType.STATIC);
+            }
+
+            EndScope();
+
+            currentClass = enclosingClass;
             return null;
         }
     }

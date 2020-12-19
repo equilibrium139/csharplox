@@ -8,11 +8,13 @@ namespace sharplox
     {
         private readonly Stmt.Function function;
         private readonly Environment closure;
+        readonly bool isInitializer;
 
-        public LoxFunction(Stmt.Function function, Environment closure)
+        public LoxFunction(Stmt.Function function, Environment closure, bool isInitializer)
         {
             this.function = function;
             this.closure = closure;
+            this.isInitializer = isInitializer;
         }
 
         public int Arity()
@@ -33,10 +35,20 @@ namespace sharplox
                 interpreter.ExecuteBlock(function.body, environment);
             } catch(ReturnException returnValue)
             {
+                if (isInitializer) return closure.Get(0); // return "this"
                 return returnValue.value;
             }
 
+            if (isInitializer) return closure.Get(0); // return "this"
+
             return null;
+        }
+
+        public LoxFunction Bind(LoxInstance instance)
+        {
+            Environment closureWithThis = new Environment(enclosing: closure);
+            closureWithThis.Define(instance);
+            return new LoxFunction(function, closure: closureWithThis, isInitializer);
         }
 
         public override string ToString()

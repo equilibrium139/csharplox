@@ -30,12 +30,13 @@
     {
         public readonly TokenType type;
         public readonly object data;
+        public readonly string lexeme;
         public readonly int line;
         public readonly int column;
 
-        public Token(TokenType type, object data, int line, int column)
+        public Token(TokenType type, object data, string lexeme, int line, int column)
         {
-            this.type = type; this.data = data; this.line = line; this.column = column;
+            this.type = type; this.data = data; this.lexeme = lexeme;  this.line = line; this.column = column;
         }
 
         public override string ToString() 

@@ -14,6 +14,7 @@ T visitWhileStmt(While stmt);
 T visitBreakStmt(Break stmt);
 T visitFunctionStmt(Function stmt);
 T visitReturnStmt(Return stmt);
+T visitClassStmt(Class stmt);
 }
 public abstract T accept<T>(IVisitor<T> visitor);
 
@@ -143,6 +144,23 @@ this.value = value;
 public override T accept<T>(IVisitor<T> visitor)
 {
 return visitor.visitReturnStmt(this);
+}
+}
+
+public class Class : Stmt
+{
+public Token name;
+public List<Stmt.Function> staticMethods;
+public List<Stmt.Function> methods;
+public Class( Token name, List<Stmt.Function> staticMethods, List<Stmt.Function> methods)
+{
+this.name = name;
+this.staticMethods = staticMethods;
+this.methods = methods;
+}
+public override T accept<T>(IVisitor<T> visitor)
+{
+return visitor.visitClassStmt(this);
 }
 }
 

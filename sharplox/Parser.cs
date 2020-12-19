@@ -12,7 +12,6 @@ namespace sharplox
         // count of outer and nested loops rather than having a single bool because the logic for
         // that is a bit more complex.
         int loopsCurrentlyParsing = 0;
-        int funcsCurrentlyParsing = 0; // same logic as loopsCurrentlyParsing for return statements
 
         public Parser(List<Token> tokens)
         {
@@ -135,12 +134,11 @@ namespace sharplox
                         putBack(2);
                         return ParseExpressionStatement();
                     }
-                    funcsCurrentlyParsing++;
                     Stmt func = ParseFuncDeclaration("function");
-                    funcsCurrentlyParsing--;
                     return func;
                 }
                 if (match(TokenType.VAR)) return ParseVarDeclaration();
+                if (match(TokenType.CLASS)) return ParseClassDeclaration();
                 return ParseStatement();
             } catch(ParseError error)
             {
@@ -166,7 +164,7 @@ namespace sharplox
             return parameters;
         }
 
-        Stmt ParseFuncDeclaration(string kind)
+        Stmt.Function ParseFuncDeclaration(string kind)
         {
             Token name = consume(TokenType.IDENTIFIER, "Expect " + kind + " name.");
             consume(TokenType.LEFT_PAREN, "Expect '(' before " + kind + " parameter list.");
@@ -178,6 +176,7 @@ namespace sharplox
             // parse body
             consume(TokenType.LEFT_BRACE, "Expect '{' before " + name + " body.");
             List<Stmt> body = ParseBlock();
+
             return new Stmt.Function(name, parameters, body);
         }
 
@@ -192,6 +191,21 @@ namespace sharplox
             }
             consume(TokenType.SEMICOLON, "Expected semicolon after variable declaration.");
             return new Stmt.Var(name, value);
+        }
+
+        Stmt ParseClassDeclaration()
+        {
+            Token name = consume(TokenType.IDENTIFIER, "Expect class name.");
+            consume(TokenType.LEFT_BRACE, "Expect '{' before class body.");
+            List<Stmt.Function> methods = new List<Stmt.Function>();
+            List<Stmt.Function> staticMethods = new List<Stmt.Function>();
+            while(peek().type != TokenType.RIGHT_BRACE && !isAtEnd())
+            {
+                if(match(TokenType.CLASS)) staticMethods.Add(ParseFuncDeclaration("static method"));
+                else methods.Add(ParseFuncDeclaration("method"));
+            }
+            consume(TokenType.RIGHT_BRACE, "Expect '}' after class body.");
+            return new Stmt.Class(name, staticMethods, methods);
         }
 
         Stmt ParseStatement()
@@ -211,10 +225,6 @@ namespace sharplox
             }
             if(match(TokenType.RETURN))
             {
-                if(funcsCurrentlyParsing == 0)
-                {
-                    Error(previous(), "Return statement can only appear in function.");
-                }
                 return ParseReturnStatement();
             }
             if (match(TokenType.IF))
@@ -385,6 +395,10 @@ namespace sharplox
                     Token name = exprAsVariable.name;
                     return new Expr.Assignment(name, value);
                 }
+                if(expr is Expr.Get exprAsGet)
+                {
+                    return new Expr.Set(exprAsGet.instance, exprAsGet.name, value);
+                }
 
                 Error(equals, "Invalid assignment target.");
             }
@@ -511,13 +525,18 @@ namespace sharplox
 
         Expr ParseCall()
         {
-            Expr callee = ParsePrimary();
+            Expr expr = ParsePrimary();
 
             while(true)
             {
                 if(match(TokenType.LEFT_PAREN))
                 {
-                    callee = FinishCall(callee);
+                    expr = FinishCall(expr);
+                }
+                else if(match(TokenType.DOT))
+                {
+                    Token name = consume(TokenType.IDENTIFIER, "Expect property name after '.'.");
+                    expr = new Expr.Get(expr, name);
                 }
                 else
                 {
@@ -525,7 +544,7 @@ namespace sharplox
                 }
             }
 
-            return callee;
+            return expr;
         }
 
         Expr FinishCall(Expr callee)
@@ -557,6 +576,7 @@ namespace sharplox
             if (match(TokenType.NIL)) return new Expr.Literal(null);
             if (match(TokenType.IDENTIFIER)) return new Expr.Variable(previous());
             if (match(TokenType.FUN)) return ParseLambda();
+            if (match(TokenType.THIS)) return new Expr.This(previous());
 
             if (match(TokenType.LEFT_PAREN))
             {
@@ -577,8 +597,6 @@ namespace sharplox
 
         public Expr ParseLambda()
         {
-            funcsCurrentlyParsing++;
-
             Token funKeyword = previous();
             consume(TokenType.LEFT_PAREN, "Expect '(' after 'fun' in lambda.");
 
@@ -590,7 +608,6 @@ namespace sharplox
             consume(TokenType.LEFT_BRACE, "Expect '{' before lambda body.");
             List<Stmt> body = ParseBlock();
 
-            funcsCurrentlyParsing--;
             return new Expr.Lambda(funKeyword, parameters, body);
         }
     }

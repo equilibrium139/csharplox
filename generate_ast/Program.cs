@@ -22,6 +22,9 @@ namespace generate_ast
                 "ExprList   : List<Expr> exprs",
                 "Call       : Expr callee, Token paren, List<Expr> args",
                 "Lambda     : Token funKeyword, List<Token> parameters, List<Stmt> body",
+                "Get        : Expr instance, Token name",   // var x = person.height;
+                "Set        : Expr instance, Token name, Expr value", // person.height = 6.0;
+                "This       : Token keyword",
             };
 
             stmtDerivedTypes = new List<string>
@@ -35,10 +38,9 @@ namespace generate_ast
                 "Break      :",
                 "Function   : Token name, List<Token> parameters, List<Stmt> body",
                 "Return     : Token keyword, Expr value",
+                "Class      : Token name, List<Stmt.Function> staticMethods, List<Stmt.Function> methods"
             };
         }
-
-        // TODO fix this script
 
         static void DefineVisitorInterface(StreamWriter writer, string baseName, List<string> derivedTypes)
         {

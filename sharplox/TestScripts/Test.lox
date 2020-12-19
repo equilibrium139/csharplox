@@ -1,44 +1,16 @@
-fun add(a, b)
-{
-  return a + b;
-}
-
-
-while(true)
-{
-  var i = 0;
-  if(true)
+class Point {
+  init(x, y)
   {
-    i = i + 1;
-    print i;
+    this.x = x;
+    this.y = y;
+    return;
   }
-  break;
-}
 
-if(add(10, 100) > 100)
-{
-  // {
-  //   var i = 0;
-  //   while(i < max)
-  //   {
-  //     {
-    //     if(i > 250)
-    //     {
-
-    //     }
-    //     // ...
-  //     }
-  //     i = i + 1
-  //   }
-  // }
-  var max = 1000;
-  for(var i = 0; i < max; i = i + 1)
+  toString()
   {
-    if(i > 250 and i < 750)
-    {
-      print i;
-    }
+    return "(" + this.x + ", " + this.y + ")";
   }
 }
 
-print add(5, 5);
+var p = Point(5, 10);
+print p.toString();

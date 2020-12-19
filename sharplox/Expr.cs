@@ -15,6 +15,9 @@ T visitAssignmentExpr(Assignment expr);
 T visitExprListExpr(ExprList expr);
 T visitCallExpr(Call expr);
 T visitLambdaExpr(Lambda expr);
+T visitGetExpr(Get expr);
+T visitSetExpr(Set expr);
+T visitThisExpr(This expr);
 }
 public abstract T accept<T>(IVisitor<T> visitor);
 
@@ -165,6 +168,51 @@ this.body = body;
 public override T accept<T>(IVisitor<T> visitor)
 {
 return visitor.visitLambdaExpr(this);
+}
+}
+
+public class Get : Expr
+{
+public Expr instance;
+public Token name;
+public Get( Expr instance, Token name)
+{
+this.instance = instance;
+this.name = name;
+}
+public override T accept<T>(IVisitor<T> visitor)
+{
+return visitor.visitGetExpr(this);
+}
+}
+
+public class Set : Expr
+{
+public Expr instance;
+public Token name;
+public Expr value;
+public Set( Expr instance, Token name, Expr value)
+{
+this.instance = instance;
+this.name = name;
+this.value = value;
+}
+public override T accept<T>(IVisitor<T> visitor)
+{
+return visitor.visitSetExpr(this);
+}
+}
+
+public class This : Expr
+{
+public Token keyword;
+public This( Token keyword)
+{
+this.keyword = keyword;
+}
+public override T accept<T>(IVisitor<T> visitor)
+{
+return visitor.visitThisExpr(this);
 }
 }
 

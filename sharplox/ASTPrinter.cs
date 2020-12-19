@@ -40,12 +40,12 @@ namespace sharplox
 
         public string visitVariableExpr(Expr.Variable expr)
         {
-            return parenthesize((string)(expr.name.data));
+            return parenthesize(expr.name.lexeme);
         }
 
         public string visitAssignmentExpr(Expr.Assignment expr)
         {
-            return parenthesize((string)expr.name.data + "=", expr.value);
+            return parenthesize(expr.name.lexeme + "=", expr.value);
         }
 
         public string visitExprListExpr(Expr.ExprList expr)
@@ -63,6 +63,11 @@ namespace sharplox
             return parenthesize("LAMBDA");
         }
 
+        public string visitGetExpr(Expr.Get expr)
+        {
+            return parenthesize("GET");
+        }
+
         private string parenthesize(string name, params Expr[] exprs)
         {
             StringBuilder builder = new StringBuilder();
@@ -74,6 +79,16 @@ namespace sharplox
             }
             builder.Append(")");
             return builder.ToString();
+        }
+
+        public string visitSetExpr(Expr.Set expr)
+        {
+            throw new NotImplementedException();
+        }
+
+        public string visitThisExpr(Expr.This expr)
+        {
+            throw new NotImplementedException();
         }
     }
 }

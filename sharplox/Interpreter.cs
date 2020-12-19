@@ -203,7 +203,7 @@ namespace sharplox
         {
             // Variables and functions exist in the same environment, so unlike some other languages,
             // Lox does not allow a function to have the same name as a variable in the same environment.
-            return LookUpVariable(expr.name, expr);
+            return LookUpVariable(expr);
         }
 
         public object visitAssignmentExpr(Expr.Assignment expr)
@@ -254,6 +254,34 @@ namespace sharplox
             return new LoxLambda(expr, environment);
         }
 
+        public object visitGetExpr(Expr.Get expr)
+        {
+            object instance = Evaluate(expr.instance);
+            if(instance is LoxInstance loxInstance)
+            {
+                return loxInstance.Get(expr.name);
+            }
+
+            throw new RuntimeError(expr.name, "Only instances have properties.");
+        }
+
+        public object visitSetExpr(Expr.Set expr)
+        {
+            object instance = Evaluate(expr.instance);
+            if(instance is LoxInstance loxInstance)
+            {
+                object value = Evaluate(expr.value);
+                loxInstance.Set(expr.name, value);
+                return value;
+            }
+            throw new RuntimeError(expr.name, "Only instances have fields.");
+        }
+
+        public object visitThisExpr(Expr.This expr)
+        {
+            return LookUpVariable(expr);
+        }
+
         // Everything is "truthy" except for false and nil in Lox
         private bool GetTruthValue(object obj)
         {
@@ -279,7 +307,7 @@ namespace sharplox
             if(!(lhs is double && rhs is double)) { throw new RuntimeError(op, "Operands must be numbers."); }
         }
 
-        private object LookUpVariable(Token name, Expr expr)
+        private object LookUpVariable(Expr expr)
         {
             if(locals.TryGetValue(expr, out var exprLocation))
             {
@@ -397,10 +425,25 @@ namespace sharplox
 
         public object visitFunctionStmt(Stmt.Function stmt)
         {
-            LoxFunction function = new LoxFunction(function: stmt, closure: environment);
+            LoxFunction function = new LoxFunction(function: stmt, closure: environment, false);
             environment.Define(function);
             return null;
         }
+
+        public object visitClassStmt(Stmt.Class stmt)
+        {
+            Dictionary<string, LoxFunction> methods = new Dictionary<string, LoxFunction>();
+            foreach(Stmt.Function method in stmt.methods)
+            {
+                LoxFunction loxFunc = new LoxFunction(method, closure: environment, method.name.lexeme == "init");
+                methods.Add(method.name.lexeme, loxFunc);
+            }
+            LoxClass loxClass = new LoxClass(stmt.name.lexeme, methods);
+
+            environment.Define(loxClass);
+            return null;
+        }
+
 
         /*public object visitForStmt(Stmt.For stmt)
         {
