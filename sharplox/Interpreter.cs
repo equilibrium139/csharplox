@@ -261,6 +261,10 @@ namespace sharplox
             {
                 return loxInstance.Get(expr.name);
             }
+            if(instance is LoxClass loxClass)
+            {
+                return loxClass.FindStaticMethod(expr.name.lexeme);
+            }
 
             throw new RuntimeError(expr.name, "Only instances have properties.");
         }
@@ -438,7 +442,13 @@ namespace sharplox
                 LoxFunction loxFunc = new LoxFunction(method, closure: environment, method.name.lexeme == "init");
                 methods.Add(method.name.lexeme, loxFunc);
             }
-            LoxClass loxClass = new LoxClass(stmt.name.lexeme, methods);
+            Dictionary<string, LoxFunction> staticMethods = new Dictionary<string, LoxFunction>();
+            foreach(Stmt.Function method in stmt.staticMethods)
+            {
+                LoxFunction loxFunc = new LoxFunction(method, closure: environment, false);
+                staticMethods.Add(method.name.lexeme, loxFunc);
+            }
+            LoxClass loxClass = new LoxClass(stmt.name.lexeme, staticMethods, methods);
 
             environment.Define(loxClass);
             return null;

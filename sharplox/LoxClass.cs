@@ -4,16 +4,17 @@ using System.Text;
 
 namespace sharplox
 {
-    class LoxClass : LoxInstance, LoxCallable 
+    class LoxClass : LoxCallable 
     {
         public readonly string name;
         readonly Dictionary<string, LoxFunction> methods;
+        readonly Dictionary<string, LoxFunction> staticMethods;
         LoxFunction initializer;
 
-        public LoxClass(string name, Dictionary<string, LoxFunction> methods)
-            :base(null)
+        public LoxClass(string name, Dictionary<string, LoxFunction> staticMethods, Dictionary<string, LoxFunction> methods)
         {
             this.name = name;
+            this.staticMethods = staticMethods;
             this.methods = methods;
             initializer = FindMethod("init");
         }
@@ -36,6 +37,16 @@ namespace sharplox
         public LoxFunction FindMethod(string name)
         {
             if(methods.TryGetValue(name, out var method))
+            {
+                return method;
+            }
+
+            return null;
+        }
+
+        public LoxFunction FindStaticMethod(string name)
+        {
+            if(staticMethods.TryGetValue(name, out var method))
             {
                 return method;
             }

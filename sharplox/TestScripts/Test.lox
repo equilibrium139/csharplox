@@ -1,16 +1,8 @@
-class Point {
-  init(x, y)
-  {
-    this.x = x;
-    this.y = y;
-    return;
-  }
-
-  toString()
-  {
-    return "(" + this.x + ", " + this.y + ")";
+class Math {
+  class square(n) {
+    this.x = 10;
+    return n * n;
   }
 }
 
-var p = Point(5, 10);
-print p.toString();
+print Math.square(3); // Prints "9".

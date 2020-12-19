@@ -313,7 +313,6 @@ namespace sharplox
 
         object Stmt.IVisitor<object>.visitFunctionStmt(Stmt.Function stmt)
         {
-
             Declare(stmt.name);
             Define(stmt.name);
             ResolveFunction(stmt.parameters, stmt.body, FunctionType.FUNCTION);
@@ -346,7 +345,7 @@ namespace sharplox
                 {
                     Lox.ReportError(stmt.keyword, "Cannot return value from an initializer.");
                 }
-                Resolve(stmt.value);
+                else Resolve(stmt.value);
             }
             return null;
         }
