@@ -25,6 +25,7 @@ namespace generate_ast
                 "Get        : Expr instance, Token name",   // var x = person.height;
                 "Set        : Expr instance, Token name, Expr value", // person.height = 6.0;
                 "This       : Token keyword",
+                "Super      : Token keyword, Token method",
             };
 
             stmtDerivedTypes = new List<string>
@@ -38,7 +39,7 @@ namespace generate_ast
                 "Break      :",
                 "Function   : Token name, List<Token> parameters, List<Stmt> body",
                 "Return     : Token keyword, Expr value",
-                "Class      : Token name, List<Stmt.Function> staticMethods, List<Stmt.Function> methods"
+                "Class      : Token name, Expr.Variable superclass, List<Stmt.Function> staticMethods, List<Stmt.Function> methods"
             };
         }
 

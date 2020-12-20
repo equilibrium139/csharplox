@@ -90,5 +90,10 @@ namespace sharplox
         {
             throw new NotImplementedException();
         }
+
+        public string visitSuperExpr(Expr.Super expr)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

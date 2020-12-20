@@ -286,6 +286,22 @@ namespace sharplox
             return LookUpVariable(expr);
         }
 
+        public object visitSuperExpr(Expr.Super expr)
+        {
+            var exprLocationData = locals[expr];
+            LoxClass superclass = (LoxClass)environment.GetAt(exprLocationData.depth, exprLocationData.index);
+            // We know "this" is one environment removed from "super" because of the way we set the environments up
+            // in visitClassStmt. Hacky fix but it works. We also know its index is 0 because "this" is the only variable
+            // in its environment.
+            LoxInstance instance = (LoxInstance)environment.GetAt(exprLocationData.depth - 1, 0);
+            LoxFunction method = superclass.FindMethod(expr.method.lexeme);
+            if(method == null)
+            {
+                throw new RuntimeError(expr.method, "Undefined superclass property '" + expr.method.lexeme + "'.");
+            }
+            return method.Bind(instance);
+        }
+
         // Everything is "truthy" except for false and nil in Lox
         private bool GetTruthValue(object obj)
         {
@@ -436,6 +452,24 @@ namespace sharplox
 
         public object visitClassStmt(Stmt.Class stmt)
         {
+            object superclass = null;
+            if(stmt.superclass != null)
+            {
+                superclass = Evaluate(stmt.superclass);
+                if(!(superclass is LoxClass))
+                {
+                    throw new RuntimeError(stmt.superclass.name, "Superclass must be a class.");
+                }
+            }
+
+            int classIndex = environment.Define(null);
+
+            if (stmt.superclass != null)
+            {
+                environment = new Environment(enclosing: environment);
+                environment.Define(superclass);
+            }
+
             Dictionary<string, LoxFunction> methods = new Dictionary<string, LoxFunction>();
             foreach(Stmt.Function method in stmt.methods)
             {
@@ -448,9 +482,15 @@ namespace sharplox
                 LoxFunction loxFunc = new LoxFunction(method, closure: environment, false);
                 staticMethods.Add(method.name.lexeme, loxFunc);
             }
-            LoxClass loxClass = new LoxClass(stmt.name.lexeme, staticMethods, methods);
+            LoxClass loxClass = new LoxClass(stmt.name.lexeme, (LoxClass)superclass, staticMethods, methods);
+            
+            if(stmt.superclass != null)
+            {
+                environment = environment.enclosing;
+            }
 
-            environment.Define(loxClass);
+            environment.Assign(classIndex, loxClass);
+
             return null;
         }
 

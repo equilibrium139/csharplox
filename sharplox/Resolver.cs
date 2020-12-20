@@ -34,7 +34,7 @@ namespace sharplox
 
         private enum ClassType
         {
-            NONE, CLASS
+            NONE, CLASS, SUBCLASS
         }
 
         enum FunctionType
@@ -127,7 +127,6 @@ namespace sharplox
                     scope.Add(name.lexeme, false);
                     int varIndex = GetNextIndex();
                     Peek(varIndices).Add(name.lexeme, varIndex);
-                    Peek(unusedVars).Add(name.lexeme, name);
                 }
             }
             else
@@ -139,9 +138,17 @@ namespace sharplox
                 else
                 {
                     globalVarIndices.Add(name.lexeme, globalIndex++);
-                    unusedGlobals.Add(name.lexeme, name);
                 }
             }
+        }
+
+        private void MarkUnused(Token name)
+        {
+            if (scopes.Count > 0)
+            {
+                Peek(unusedVars)[name.lexeme] = name;
+            }
+            else unusedGlobals[name.lexeme] = name;
         }
 
         private void Define(Token name)
@@ -189,6 +196,7 @@ namespace sharplox
             {
                 Declare(parameter);
                 Define(parameter);
+                MarkUnused(parameter);
             }
             body.ForEach(Resolve);
             EndScope();
@@ -292,6 +300,16 @@ namespace sharplox
             return null;
         }
 
+        public object visitSuperExpr(Expr.Super expr)
+        {
+            if (currentClass != ClassType.SUBCLASS)
+            {
+                Lox.ReportError(expr.keyword, "Can't use 'super' outside of a sub class.");
+            }
+            else ResolveLocal(expr, expr.keyword.lexeme, AccessType.RHS);
+            return null;
+        }
+
         object Stmt.IVisitor<object>.visitBlockStmt(Stmt.Block stmt)
         {
             BeginScope();
@@ -315,6 +333,7 @@ namespace sharplox
         {
             Declare(stmt.name);
             Define(stmt.name);
+            MarkUnused(stmt.name);
             ResolveFunction(stmt.parameters, stmt.body, FunctionType.FUNCTION);
             return null;
         }
@@ -358,6 +377,7 @@ namespace sharplox
                 Resolve(stmt.intializer);
             }
             Define(stmt.name);
+            MarkUnused(stmt.name);
             return null;
         }
 
@@ -375,6 +395,23 @@ namespace sharplox
 
             Declare(stmt.name);
             Define(stmt.name);
+            MarkUnused(stmt.name);
+
+            if (stmt.superclass != null)
+            {
+                if (stmt.superclass.name.lexeme == stmt.name.lexeme)
+                {
+                    Lox.ReportError(stmt.superclass.name, "Class cannot inherit from itself.");
+                }
+                else
+                {
+                    currentClass = ClassType.SUBCLASS;
+                    Resolve(stmt.superclass);
+                    BeginScope();
+                    Peek(scopes)["super"] = true;
+                    Peek(varIndices)["super"] = GetNextIndex();
+                }
+            }
 
             BeginScope();
             // "this" is the only variable we declare at class scope. That means that when ResolveLocal()
@@ -384,8 +421,17 @@ namespace sharplox
             Peek(scopes)["this"] = true;
             Peek(varIndices)["this"] = GetNextIndex(); // TODO maybe change to 0
 
-            foreach(Stmt.Function method in stmt.methods)
+            foreach (Stmt.Function method in stmt.staticMethods)
             {
+                Declare(method.name);
+                Define(method.name);
+                ResolveFunction(method.parameters, method.body, FunctionType.STATIC);
+            }
+
+            foreach (Stmt.Function method in stmt.methods)
+            {
+                Declare(method.name);
+                Define(method.name);
                 FunctionType declaration = FunctionType.METHOD;
                 if(method.name.lexeme == "init")
                 {
@@ -394,12 +440,9 @@ namespace sharplox
                 ResolveFunction(method.parameters, method.body, declaration);
             }
 
-            foreach(Stmt.Function method in stmt.staticMethods)
-            {
-                ResolveFunction(method.parameters, method.body, FunctionType.STATIC);
-            }
-
             EndScope();
+
+            if (stmt.superclass != null) EndScope();
 
             currentClass = enclosingClass;
             return null;

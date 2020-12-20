@@ -150,11 +150,13 @@ return visitor.visitReturnStmt(this);
 public class Class : Stmt
 {
 public Token name;
+public Expr.Variable superclass;
 public List<Stmt.Function> staticMethods;
 public List<Stmt.Function> methods;
-public Class( Token name, List<Stmt.Function> staticMethods, List<Stmt.Function> methods)
+public Class( Token name, Expr.Variable superclass, List<Stmt.Function> staticMethods, List<Stmt.Function> methods)
 {
 this.name = name;
+this.superclass = superclass;
 this.staticMethods = staticMethods;
 this.methods = methods;
 }

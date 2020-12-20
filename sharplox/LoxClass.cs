@@ -7,13 +7,15 @@ namespace sharplox
     class LoxClass : LoxCallable 
     {
         public readonly string name;
+        LoxClass superclass;
         readonly Dictionary<string, LoxFunction> methods;
         readonly Dictionary<string, LoxFunction> staticMethods;
         LoxFunction initializer;
 
-        public LoxClass(string name, Dictionary<string, LoxFunction> staticMethods, Dictionary<string, LoxFunction> methods)
+        public LoxClass(string name, LoxClass superclass, Dictionary<string, LoxFunction> staticMethods, Dictionary<string, LoxFunction> methods)
         {
             this.name = name;
+            this.superclass = superclass;
             this.staticMethods = staticMethods;
             this.methods = methods;
             initializer = FindMethod("init");
@@ -41,6 +43,11 @@ namespace sharplox
                 return method;
             }
 
+            if(superclass != null)
+            {
+                return superclass.FindMethod(name);
+            }
+
             return null;
         }
 
@@ -49,6 +56,11 @@ namespace sharplox
             if(staticMethods.TryGetValue(name, out var method))
             {
                 return method;
+            }
+
+            if (superclass != null)
+            {
+                return superclass.FindStaticMethod(name);
             }
 
             return null;

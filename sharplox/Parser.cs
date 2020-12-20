@@ -196,6 +196,12 @@ namespace sharplox
         Stmt ParseClassDeclaration()
         {
             Token name = consume(TokenType.IDENTIFIER, "Expect class name.");
+            Expr.Variable superclass = null;
+            if(match(TokenType.LESS))
+            {
+                Token superclassName = consume(TokenType.IDENTIFIER, "Expect superclass name after '<'.");
+                superclass = new Expr.Variable(superclassName);
+            }
             consume(TokenType.LEFT_BRACE, "Expect '{' before class body.");
             List<Stmt.Function> methods = new List<Stmt.Function>();
             List<Stmt.Function> staticMethods = new List<Stmt.Function>();
@@ -205,7 +211,7 @@ namespace sharplox
                 else methods.Add(ParseFuncDeclaration("method"));
             }
             consume(TokenType.RIGHT_BRACE, "Expect '}' after class body.");
-            return new Stmt.Class(name, staticMethods, methods);
+            return new Stmt.Class(name, superclass, staticMethods, methods);
         }
 
         Stmt ParseStatement()
@@ -577,6 +583,13 @@ namespace sharplox
             if (match(TokenType.IDENTIFIER)) return new Expr.Variable(previous());
             if (match(TokenType.FUN)) return ParseLambda();
             if (match(TokenType.THIS)) return new Expr.This(previous());
+            if (match(TokenType.SUPER))
+            {
+                Token keyword = previous();
+                consume(TokenType.DOT, "Expect '.' after super keyword.");
+                Token method = consume(TokenType.IDENTIFIER, "Expect superclass method name.");
+                return new Expr.Super(keyword, method);
+            }
 
             if (match(TokenType.LEFT_PAREN))
             {

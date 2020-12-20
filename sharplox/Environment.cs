@@ -27,9 +27,10 @@ namespace sharplox
             Debug.Assert(success, "Global variable " + " name was already defined.");
         }*/
 
-        public void Define(object value)
+        public int Define(object value)
         {
             values.Add(value);
+            return values.Count - 1;
         }
 
         /*public void Define(Token name, object value)

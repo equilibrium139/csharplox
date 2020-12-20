@@ -18,6 +18,7 @@ T visitLambdaExpr(Lambda expr);
 T visitGetExpr(Get expr);
 T visitSetExpr(Set expr);
 T visitThisExpr(This expr);
+T visitSuperExpr(Super expr);
 }
 public abstract T accept<T>(IVisitor<T> visitor);
 
@@ -213,6 +214,21 @@ this.keyword = keyword;
 public override T accept<T>(IVisitor<T> visitor)
 {
 return visitor.visitThisExpr(this);
+}
+}
+
+public class Super : Expr
+{
+public Token keyword;
+public Token method;
+public Super( Token keyword, Token method)
+{
+this.keyword = keyword;
+this.method = method;
+}
+public override T accept<T>(IVisitor<T> visitor)
+{
+return visitor.visitSuperExpr(this);
 }
 }
 
