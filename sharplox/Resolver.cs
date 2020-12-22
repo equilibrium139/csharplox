@@ -49,6 +49,10 @@ namespace sharplox
         public Resolver(Interpreter interpreter)
         {
             this.interpreter = interpreter;
+            foreach(string nativeFunc in Interpreter.GetNativeFuncs())
+            {
+                globalVarIndices.Add(nativeFunc, globalIndex++);
+            }
         }
 
         // This is only called from outside the class. That way we know that when the for loop is done,

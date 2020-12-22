@@ -12,12 +12,6 @@ namespace sharplox
             public int index;
         }
 
-        private readonly Environment native = new Environment();
-        public readonly Environment globals;
-        Environment environment;    // initialized to globals in ctor below
-        private readonly Dictionary<Expr, ExprLocationData> locals = new Dictionary<Expr, ExprLocationData>();
-        private readonly Dictionary<Expr, int> globalIndices = new Dictionary<Expr, int>();
-
         // Example of a native function
         private class Clock : LoxCallable
         {
@@ -37,11 +31,33 @@ namespace sharplox
             }
         }
 
+        public readonly Environment globals = new Environment();
+        Environment environment;    // initialized to globals in ctor below
+        private readonly Dictionary<Expr, ExprLocationData> locals = new Dictionary<Expr, ExprLocationData>();
+        private readonly Dictionary<Expr, int> globalIndices = new Dictionary<Expr, int>();
+
+        static List<string> nativeFuncNames = new List<string>
+        {
+            "clock",
+        };
+
+        static List<LoxCallable> nativeFuncImpls = new List<LoxCallable>
+        {
+            new Clock(),
+        };
+
+        public static List<string> GetNativeFuncs()
+        {
+            return nativeFuncNames;
+        }
+
         public Interpreter()
         {
-            globals = new Environment(enclosing: native);
             environment = globals;
-            native.Define(new Clock());
+            foreach(LoxCallable loxCallable in nativeFuncImpls)
+            {
+                globals.Define(loxCallable);
+            }
         }
 
         public void Interpret(List<Stmt> statements)
@@ -335,6 +351,7 @@ namespace sharplox
             }
             else
             {
+                
                 return globals.Get(globalIndices[expr]);
             }
         }
